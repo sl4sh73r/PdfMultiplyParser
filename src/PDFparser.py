@@ -111,22 +111,19 @@ def save_to_xml(headings, xml_path):
     tree = ET.ElementTree(root)
     tree.write(xml_path, encoding="utf-8", xml_declaration=True)
 
-# Путь к вашему PDF-документу
-pdf_path = "PdfMultiplyParser\docs\example-1\contract_6215618.pdf"
-xml_path = "PdfMultiplyParser\docs\example-1\contract_6215618.xml"
+def process_pdf(pdf_path, xml_path):
+    headings = extract_headings(pdf_path)
+    headings_with_dates = extract_dates(pdf_path, headings)
+    save_to_xml(headings_with_dates, xml_path)
+    print(f"XML файл сохранен по пути: {xml_path}")
 
-headings = extract_headings(pdf_path)
-headings_with_dates = extract_dates(pdf_path, headings)
-save_to_xml(headings_with_dates, xml_path)
-
-print(f"XML файл сохранен по пути: {xml_path}")
-
-# Выводим найденные заголовки, подзаголовки и даты
-for article in headings_with_dates:
-    print(f"Article: {article['title']}")
-    for subarticle in article["subarticles"]:
-        print(f"  Subarticle: {subarticle['title']}")
-        for date in subarticle["dates"]:
-            print(f"    Date: {date}")
-    for date in article["dates"]:
-        print(f"  Date: {date}")
+    # Выводим найденные заголовки, подзаголовки и даты
+    #Диагностика
+    # for article in headings_with_dates:
+    #     print(f"Article: {article['title']}")
+    #     for subarticle in article["subarticles"]:
+    #         print(f"  Subarticle: {subarticle['title']}")
+    #         for date in subarticle["dates"]:
+    #             print(f"    Date: {date}")
+    #     for date in article["dates"]:
+    #         print(f"  Date: {date}")

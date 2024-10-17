@@ -2,6 +2,8 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 import re
 import locale
+from PDFparser import process_pdf as process_contract_pdf
+from UPD_PDFparser import process_pdf as process_upd_pdf
 
 # Устанавливаем локаль для правильного распознавания русских месяцев
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
@@ -122,26 +124,46 @@ def check_dates(contract_dates, submission_deadline, acceptance_dates):
             results.append((date_of_delivery, date_of_signature, "Просрочено"))
     return results
 
+def main():
+    # Пути к файлам
+    contract_pdf_path = "PdfMultiplyParser/docs/example-1/contract_6215618.pdf"
+    contract_xml_path = "PdfMultiplyParser/docs/example-1/contract_6215618.xml"
+    upd_files = [
+        ("PdfMultiplyParser/docs/example-1/UPD-589.pdf", "PdfMultiplyParser/docs/example-1/UPD-589.xml"),
+        ("PdfMultiplyParser/docs/example-1/UPD-602.pdf", "PdfMultiplyParser/docs/example-1/UPD-602.xml")
+    ]
+
+    print("Обработка контрактного PDF...")
+    # Обработка контрактного PDF
+    process_contract_pdf(contract_pdf_path, contract_xml_path)
+
+    for upd_pdf_path, upd_xml_path in upd_files:
+        print(f"Обработка UPD PDF: {upd_pdf_path}...")
+        # Обработка UPD PDF
+        process_upd_pdf(upd_pdf_path, upd_xml_path)
+
+        print("Проверка дат...")
+        # Динамическая обработка XML
+        contract_root = parse_xml(contract_xml_path)
+        acceptance_root = parse_xml(upd_xml_path)
+
+        print("Извлечение дат...")
+        contract_dates = get_contract_dates(contract_root)
+        submission_deadline = get_submission_deadline(contract_root)
+        acceptance_dates = get_acceptance_dates(acceptance_root)
+
+        if contract_dates and submission_deadline and acceptance_dates:
+            results = check_dates(contract_dates, submission_deadline, acceptance_dates)
+            for result in results:
+                print(f"Дата отгрузки: {result[0].strftime('%d.%m.%Y')}, Дата подписи: {result[1].strftime('%d.%m.%Y')}, Статус: {result[2]}")
+        else:
+            print("Не удалось извлечь все необходимые данные для проверки.")
+            if not contract_dates:
+                print("Проблема с извлечением дат из контракта.")
+            if not submission_deadline:
+                print("Проблема с извлечением срока предоставления отчетных документов.")
+            if not acceptance_dates:
+                print("Проблема с извлечением дат из документа о приемке.")
+
 if __name__ == "__main__":
-    contract_path = "PdfMultiplyParser/docs/example-1/contract_6215618.xml"
-    acceptance_path = "PdfMultiplyParser/docs/example-1/UPD-589.xml"
-    
-    contract_root = parse_xml(contract_path)
-    acceptance_root = parse_xml(acceptance_path)
-
-    contract_dates = get_contract_dates(contract_root)
-    submission_deadline = get_submission_deadline(contract_root)
-    acceptance_dates = get_acceptance_dates(acceptance_root)
-
-    if contract_dates and submission_deadline and acceptance_dates:
-        results = check_dates(contract_dates, submission_deadline, acceptance_dates)
-        for result in results:
-            print(f"Дата отгрузки: {result[0].strftime('%d.%m.%Y')}, Дата подписи: {result[1].strftime('%d.%m.%Y')}, Статус: {result[2]}")
-    else:
-        print("Не удалось извлечь все необходимые данные для проверки.")
-        if not contract_dates:
-            print("Проблема с извлечением дат из контракта.")
-        if not submission_deadline:
-            print("Проблема с извлечением срока предоставления отчетных документов.")
-        if not acceptance_dates:
-            print("Проблема с извлечением дат из документа о приемке.")
+    main()

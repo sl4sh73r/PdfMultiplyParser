@@ -53,7 +53,7 @@ def extract_dates_and_signatures(text):
             "Сертификат2": match.group(4).strip(),
         }
         signatures.append(signature_info)
-        print(signature_info)
+        # print(signature_info)
     if signatures:
         extracted_data["Электронные подписи"] = signatures
     else:
@@ -101,12 +101,9 @@ def save_to_xml(extracted_data, xml_path):
 
     tree = ET.ElementTree(root)
     tree.write(xml_path, encoding="utf-8", xml_declaration=True)
-if __name__ == "__main__":
-    pdf_path = "PdfMultiplyParser/docs/example-1/UPD-589.pdf"
-    xml_path = "PdfMultiplyParser/docs/example-1/UPD-589.xml"
+    
+def process_pdf(pdf_path, xml_path):
     extracted_text = extract_text_from_pdf(pdf_path)
-    
     extracted_data = extract_dates_and_signatures(extracted_text)
-    
     save_to_xml(extracted_data, xml_path)
     print(f"Данные сохранены в {xml_path}")
