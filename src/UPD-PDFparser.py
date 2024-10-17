@@ -32,7 +32,7 @@ def extract_dates_and_signatures(text):
         r'\s*Сертификат:\s*\n([0-9A-F ]+)\s*\n',  # Сертификат(2)
         re.IGNORECASE
     )
-
+    
     extracted_data = {}
 
     # Извлекаем даты
@@ -53,7 +53,7 @@ def extract_dates_and_signatures(text):
             "Сертификат2": match.group(4).strip(),
         }
         signatures.append(signature_info)
-
+        print(signature_info)
     if signatures:
         extracted_data["Электронные подписи"] = signatures
     else:
@@ -84,10 +84,15 @@ def save_to_xml(extracted_data, xml_path):
     signatures = ET.SubElement(root, "Подписи")
     for idx, signature in enumerate(extracted_data.get("Электронные подписи", []), start=1):
         signature_element = ET.SubElement(signatures, f"Подпись{idx}")
-        date_signing = ET.SubElement(signature_element, f"Датаподписи{idx}")
-        date_signing.text = signature["Датаподписи"]
-        cert = ET.SubElement(signature_element, f"Сертификат{idx}")
-        cert.text = signature["Сертификат"]
+        date_signing1 = ET.SubElement(signature_element, f"Датаподписи1")
+        date_signing1.text = signature["Датаподписи"]
+        cert1 = ET.SubElement(signature_element, f"Сертификат1")
+        cert1.text = signature["Сертификат"]
+        
+        date_signing2 = ET.SubElement(signature_element, f"Датаподписи2")
+        date_signing2.text = signature["Датаподписи2"]
+        cert2 = ET.SubElement(signature_element, f"Сертификат2")
+        cert2.text = signature["Сертификат2"]
         
         # Даты действительности
         if idx <= len(extracted_data.get("Даты действительности", [])):
@@ -96,10 +101,9 @@ def save_to_xml(extracted_data, xml_path):
 
     tree = ET.ElementTree(root)
     tree.write(xml_path, encoding="utf-8", xml_declaration=True)
-
 if __name__ == "__main__":
-    pdf_path = "docs/example-1/UPD-589.pdf"
-    xml_path = "docs/example-1/UPD-589.xml"
+    pdf_path = "PdfMultiplyParser/docs/example-1/UPD-589.pdf"
+    xml_path = "PdfMultiplyParser/docs/example-1/UPD-589.xml"
     extracted_text = extract_text_from_pdf(pdf_path)
     
     extracted_data = extract_dates_and_signatures(extracted_text)

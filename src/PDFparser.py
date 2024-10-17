@@ -112,8 +112,8 @@ def save_to_xml(headings, xml_path):
     tree.write(xml_path, encoding="utf-8", xml_declaration=True)
 
 # Путь к вашему PDF-документу
-pdf_path = "/Users/sl4sh73r/Documents/added/PdfMultiplyParser/docs/example-1/contract_6215618.pdf"
-xml_path = "/Users/sl4sh73r/Documents/added/PdfMultiplyParser/docs/example-1/contract_6215618.xml"
+pdf_path = "PdfMultiplyParser\docs\example-1\contract_6215618.pdf"
+xml_path = "PdfMultiplyParser\docs\example-1\contract_6215618.xml"
 
 headings = extract_headings(pdf_path)
 headings_with_dates = extract_dates(pdf_path, headings)
