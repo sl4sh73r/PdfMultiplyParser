@@ -10,6 +10,7 @@ def extract_headings(pdf_path):
 
     # Регулярные выражения для поиска подзаголовков
     subarticle_pattern = re.compile(r'^\d+(\.\d+)*\s+.+$')
+    number_pattern = re.compile(r'^\d+(\.\d+)*$')
 
     # Проходим по всем страницам
     for page_num in range(len(document)):
@@ -27,18 +28,28 @@ def extract_headings(pdf_path):
                         if text.startswith("Статья") and font_size > 10:  # Предположим, что обычный текст имеет размер шрифта <= 10
                             current_article = {"title": text, "subarticles": [], "dates": [], "text": ""}  # Создаем новую статью с пустым списком подстатей и текстом
                             headings.append(current_article)
-                            # print(f"Found article: {text}")
                         # Ищем подзаголовки, соответствующие определенной структуре
                         elif subarticle_pattern.match(text):
                             if current_article:
                                 current_article["subarticles"].append({"title": text, "dates": [], "text": ""})  # Добавляем подстатью к текущей статье
-                                # print(f"  Found subarticle: {text}")
+                        # Проверяем, является ли текст числом, чтобы объединить его с предыдущим заголовком
+                        elif number_pattern.match(text):
+                            if current_article and current_article["subarticles"]:
+                                current_article["subarticles"][-1]["title"] += " " + text
                         # Добавляем текст к текущей статье или подстатье
                         elif current_article:
                             if current_article["subarticles"]:
                                 current_article["subarticles"][-1]["text"] += " " + text
                             else:
                                 current_article["text"] += " " + text
+
+    # Проверяем, что после подзаголовка идет нужное число
+    for article in headings:
+        for i in range(len(article["subarticles"]) - 1):
+            current_subarticle = article["subarticles"][i]["title"].split()[0]
+            next_subarticle = article["subarticles"][i + 1]["title"].split()[0]
+            if current_subarticle.count('.') == next_subarticle.count('.') and int(next_subarticle.split('.')[-1]) != int(current_subarticle.split('.')[-1]) + 1:
+                print(f"Ошибка: после подзаголовка {current_subarticle} идет {next_subarticle}, а должно идти {current_subarticle.split('.')[0]}.{int(current_subarticle.split('.')[-1]) + 1}")
 
     return headings
 
@@ -49,8 +60,8 @@ def extract_dates(pdf_path, headings):
     # Регулярные выражения для поиска дат
     date_patterns = [
         re.compile(r'\b(0?[1-9]|[12][0-9]|3[01])[\/\-\.](0?[1-9]|1[012])[\/\-\.](\d{4})\b'),  # Формат даты: ДД.ММ.ГГГГ, ДД/ММ/ГГГГ, ДД-ММ-ГГГГ
-        re.compile(r'\b(0?[1-9]|[12][0-9]|3[01]) (янв(?:аря)?|фев(?:раля)?|мар(?:та)?|апр(?:еля)?|мая|июн(?:я)?|июл(?:я)?|авг(?:уста)?|сен(?:тября)?|окт(?:ября)?|ноя(?:бря)?|дек(?:абря)?) (\d{4}) года\b', re.IGNORECASE),  # Формат даты: ДД месяц ГГГГ года
-        re.compile(r'\bс (0?[1-9]|[12][0-9]|3[01])[\/\-\.](0?[1-9]|1[012])[\/\-\.](\d{4}) по (0?[1-9]|[12][0-9]|3[01])[\/\-\.](0?[1-9]|1[012])[\/\-\.](\d{4})\b', re.IGNORECASE)  # Формат диапазона дат: с ДД.ММ.ГГГГ по ДД.ММ.ГГГГ
+        re.compile(r'\b(0?[1-9]|[12][0-9]|3[01]) (янв(?:аря)?|фев(?:раля)?|мар(?:та)?|апр(?:еля)?|мая|июн(?:я)?|июл(?:я)?|авг(?:уста)?|сен(?:тября)?|окт(?:ября)?|ноя(?:бря)?|дек(?:абря)?) (\д{4}) года\b', re.IGNORECASE),  # Формат даты: ДД месяц ГГГГ года
+        re.compile(r'\bс (0?[1-9]|[12][0-9]|3[01])[\/\-\.](0?[1-9]|1[012])[\/\-\.](\д{4}) по (0?[1-9]|[12][0-9]|3[01])[\/\-\.](0?[1-9]|1[012])[\/\-\.](\д{4})\b', re.IGNORECASE)  # Формат диапазона дат: с ДД.ММ.ГГГГ по ДД.ММ.ГГГГ
     ]
 
     # Проходим по всем страницам и ищем даты
@@ -69,26 +80,20 @@ def extract_dates(pdf_path, headings):
                             match = date_pattern.search(text)
                             if match:
                                 date_text = match.group()
-                                # print(f"Found date: {date_text}")
 
                                 # Проверяем, к какой статье или подстатье относится дата
                                 for article in headings:
                                     added = False
                                     for subarticle in article["subarticles"]:
-                                        # print(f"  Subarticle text: {article['subarticles']}")
                                         if date_text in subarticle["text"]:
                                             if date_text not in subarticle["dates"]:
                                                 subarticle["dates"].append(date_text)
-                                                # print(f"  Added date to subarticle{subarticle['title']}: {date_text}")
                                             added = True
                                             break
                                     if not added:
                                         if date_text in article["text"]:
                                             if date_text not in article["dates"]:
                                                 article["dates"].append(date_text)
-                                            # print(f"  Added date to article: {date_text}")
-                                        
-
 
     return headings
 

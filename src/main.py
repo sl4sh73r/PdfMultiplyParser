@@ -1,9 +1,13 @@
+import sys
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 import re
 import locale
+import os
 from PDFparser import process_pdf as process_contract_pdf
 from UPD_PDFparser import process_pdf as process_upd_pdf
+from WordParser import parse_dates_from_word
+import subprocess
 
 # Устанавливаем локаль для правильного распознавания русских месяцев
 locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
@@ -29,9 +33,9 @@ def parse_xml(file_path):
     root = tree.getroot()
     return root
 
-def get_contract_dates(contract_root):
+def get_contract_dates(contract_root, word_doc_path):
     # Извлекаем даты из статьи 3 контракта
-    article_3 = contract_root.find(".//Article[@title='Статья 3 Сроки выполнения работ']")
+    article_3 = contract_root.find(".//Article[@title='Статья 3 Сроки выполнения работ']" or ".//Article[@title='Статья 3 Сроки оказания услуг']")
     if article_3 is not None:
         subarticles = article_3.findall(".//Subarticle")
         for subarticle in subarticles:
@@ -48,29 +52,46 @@ def get_contract_dates(contract_root):
                         print(f"Ошибка при разборе дат в статье 3: {e}")
                 else:
                     print("Не удалось найти даты в статье 3")
-        print("Не удалось найти подпункт 3.1 в статье 3")
     else:
         print("Не удалось найти статью 3")
+    
+    # Вызов WordParser, если не удалось найти даты в статье 3
+    word_dates = parse_dates_from_word(word_doc_path)
+    if word_dates:
+        print(f"Даты из Word-документа: {word_dates}")
+        return word_dates
     return None, None
 
 def get_submission_deadline(contract_root):
     # Извлекаем срок предоставления отчетных документов из статьи 4 контракта
-    article_4 = contract_root.find(".//Article[@title='Статья 4 Порядок сдачи-приемки выполненных работ']")
+    article_4 = contract_root.find(".//Article[@title='Статья 4 Порядок сдачи-приемки оказанных услуг']")
+    if article_4 is None:
+        article_4 = contract_root.find(".//Article[@title='Статья 4 Порядок сдачи-приемки выполненных работ']")
+    
     if article_4 is not None:
         subarticles = article_4.findall(".//Subarticle")
-        for subarticle in subarticles:
+        for i, subarticle in enumerate(subarticles):
             title = subarticle.attrib.get("title", "")
-            if "4.1" in title:
-                match = re.search(r'не  позднее  (\d+)', title)
+            if "4.1" in title or "4.2" in title:
+                # Объединяем заголовки, если они разделены
+                full_title = title
+                for next_subarticle in subarticles[i+1:]:
+                    next_title = next_subarticle.attrib.get("title", "")
+                    if next_title.startswith("4.3"):
+                        break
+                    full_title += " " + next_title
+                
+                match = re.search(r'не позднее (\d+)', full_title)
                 if match:
                     days = int(match.group(1))
                     print(f"Cроки предоставления отчетных документов: {days} дней")
                     return days
                 else:
-                    print("Не удалось найти число дней в заголовке статьи 4.1")
-        print("Не удалось найти подпункт 4.1 в статье 4")
+                    print(f"Не удалось найти число дней в заголовке статьи {title.split()[0]}")
+        print("Не удалось найти подпункт 4.1 или 4.2 в статье 4")
     else:
         print("Не удалось найти статью 4")
+        print(contract_root)
     return None
 
 def get_acceptance_dates(acceptance_root):
@@ -89,7 +110,7 @@ def get_acceptance_dates(acceptance_root):
         for signature_tag in ["Подпись1", "Подпись2"]:
             signature = signatures_root.find(f".//{signature_tag}")
             if signature is not None:
-                date_of_signature = signature.find(f".//Датаподписи{signature_tag[-1]}")
+                date_of_signature = signature.find(f".//Датаподписи")
                 if date_of_signature is not None:
                     try:
                         date_of_signature_text = date_of_signature.text
@@ -113,42 +134,42 @@ def get_acceptance_dates(acceptance_root):
         print("Не удалось найти корневой элемент <Подписи> в документе о приемке")
     return dates
 
-def check_dates(contract_dates, submission_deadline, acceptance_dates):
-    start_date, end_date = contract_dates
-    results = []
-    for date_of_delivery, date_of_signature in acceptance_dates:
-        expected_submission_date = date_of_delivery + timedelta(days=submission_deadline)
-        if date_of_signature <= expected_submission_date:
-            results.append((date_of_delivery, date_of_signature, "В срок"))
-        else:
-            results.append((date_of_delivery, date_of_signature, "Просрочено"))
-    return results
-
 def main():
-    # Пути к файлам
-    contract_pdf_path = "PdfMultiplyParser/docs/example-1/contract_6215618.pdf"
-    contract_xml_path = "PdfMultiplyParser/docs/example-1/contract_6215618.xml"
-    upd_files = [
-        ("PdfMultiplyParser/docs/example-1/UPD-589.pdf", "PdfMultiplyParser/docs/example-1/UPD-589.xml"),
-        ("PdfMultiplyParser/docs/example-1/UPD-602.pdf", "PdfMultiplyParser/docs/example-1/UPD-602.xml")
-    ]
+    if len(sys.argv) < 4:
+        print("Usage: python main.py <contract_pdf_path> <word_doc_path> <upd_files>")
+        sys.exit(1)
 
+    contract_pdf_path = sys.argv[1]
+    word_doc_path = sys.argv[2]
+    upd_files = sys.argv[3:]
+
+    # Создаем XML файл для контракта
+    contract_xml_path = os.path.splitext(contract_pdf_path)[0] + ".xml"
     print("Обработка контрактного PDF...")
-    # Обработка контрактного PDF
     process_contract_pdf(contract_pdf_path, contract_xml_path)
 
-    for upd_pdf_path, upd_xml_path in upd_files:
-        print(f"Обработка UPD PDF: {upd_pdf_path}...")
-        # Обработка UPD PDF
-        process_upd_pdf(upd_pdf_path, upd_xml_path)
+    for upd_file in upd_files:
+        # Определяем тип файла (PDF или HTML)
+        if upd_file.lower().endswith('.pdf'):
+            # Создаем XML файл для каждого UPD PDF
+            upd_xml_path = os.path.splitext(upd_file)[0] + ".xml"
+            print(f"Обработка UPD PDF: {upd_file}...")
+            process_upd_pdf(upd_file, upd_xml_path)
+        elif upd_file.lower().endswith('.html'):
+            # Обрабатываем HTML файл и создаем XML
+            print(f"Обработка UPD HTML: {upd_file}...")
+            subprocess.run(["python", "src/HTMLparser.py", upd_file], check=True)
+            upd_xml_path = os.path.splitext(upd_file)[0] + ".xml"
+        else:
+            print(f"Неизвестный формат файла: {upd_file}")
+            continue
 
         print("Проверка дат...")
-        # Динамическая обработка XML
         contract_root = parse_xml(contract_xml_path)
         acceptance_root = parse_xml(upd_xml_path)
 
         print("Извлечение дат...")
-        contract_dates = get_contract_dates(contract_root)
+        contract_dates = get_contract_dates(contract_root, word_doc_path)
         submission_deadline = get_submission_deadline(contract_root)
         acceptance_dates = get_acceptance_dates(acceptance_root)
 

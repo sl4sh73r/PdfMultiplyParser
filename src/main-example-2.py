@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import re
 import locale
 from PDFparser import process_pdf as process_contract_pdf
-from UPDPDFparser import process_pdf as process_upd_pdf
+from UPD_PDFparser import process_pdf as process_upd_pdf
 from WordParser import parse_dates_from_word
 
 # Устанавливаем локаль для правильного распознавания русских месяцев
@@ -32,7 +32,7 @@ def parse_xml(file_path):
 
 def get_contract_dates(contract_root, word_doc_path):
     # Извлекаем даты из статьи 3 контракта
-    article_3 = contract_root.find(".//Article[@title='Статья 3 Сроки выполнения работ']")
+    article_3 = contract_root.find(".//Article[@title='Статья 3 Сроки выполнения работ']" or ".//Article[@title='Статья 3 Сроки оказания услуг']")
     if article_3 is not None:
         subarticles = article_3.findall(".//Subarticle")
         for subarticle in subarticles:
@@ -61,7 +61,7 @@ def get_contract_dates(contract_root, word_doc_path):
 
 def get_submission_deadline(contract_root):
     # Извлекаем срок предоставления отчетных документов из статьи 4 контракта
-    article_4 = contract_root.find(".//Article[@title='Статья 4 Порядок сдачи-приемки выполненных работ']")
+    article_4 = contract_root.find(".//Article[@title='Статья 4 Порядок сдачи-приемки оказанных услуг']" or ".//Article[@title='Статья 4 Порядок сдачи-приемки выполненных работ']")
     if article_4 is not None:
         subarticles = article_4.findall(".//Subarticle")
         for subarticle in subarticles:
