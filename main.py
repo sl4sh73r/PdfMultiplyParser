@@ -4,7 +4,7 @@ from datetime import datetime
 
 def main():
     # Ввод пути к основному PDF файлу
-    main_pdf_path = 'docs\example-2\contract_6910851.pdf'
+    main_pdf_path = 'docs\\example-2\\contract_6910851.pdf'
 
     # Ввод путей к дополнительным PDF файлам для поиска даты отгрузки и даты подписания
     additional_pdf_paths = [
@@ -13,7 +13,7 @@ def main():
     ]
 
     # Ввод пути к DOCX файлу
-    docx_path = 'docs\example-2\ТЗ 178_2023.docx'
+    docx_path = 'docs\\example-2\\ПТЗ 178_2023.docx'
 
     # Ввод путей к HTML файлам
     html_paths = [
@@ -33,19 +33,17 @@ def main():
             print(f"Срок предоставления комплекта отчетной документации: {article_4_number} рабочих дней")
 
             # Расчет срока предоставления комплекта отчетной документации
-            shipping_dates = [additional_dates[0], additional_dates[2]]
-            for index, shipping_date in enumerate(shipping_dates):
-                shipping_date_dt = datetime.strptime(shipping_date, '%d.%m.%Y')
-                deadline_date_dt = parse_pdf.add_business_days(shipping_date_dt, article_4_number)
-                deadline_date_str = deadline_date_dt.strftime('%d.%m.%Y')
-                print(f"Окончательный срок для документа {index + 1}: {deadline_date_str}")
+            html_dates = parse_docx.parse_multiple_html(html_paths)
+            deadline_dates = parse_docx.calculate_deadline_dates(article_4_number, html_dates)
+            print(f"Расчетные даты дедлайнов: {deadline_dates}")
 
-                signed_date = additional_dates[1] if index == 0 else additional_dates[3]
-                signed_date_dt = datetime.strptime(signed_date, '%d.%m.%Y')
-                if signed_date_dt <= deadline_date_dt:
-                    print(f"Дата подписания документа {index + 1} удовлетворяет сроку предоставления комплекта отчетной документации")
+            for i, html_date in enumerate(html_dates):
+                html_date_dt = datetime.strptime(html_date, '%d.%m.%Y')
+                deadline_date_dt = datetime.strptime(deadline_dates[i], '%d.%m.%Y')
+                if html_date_dt <= deadline_date_dt:
+                    print(f"Дата подписания {html_date} удовлетворяет дедлайну {deadline_dates[i]}")
                 else:
-                    print(f"Дата подписания документа {index + 1} не удовлетворяет сроку предоставления комплекта отчетной документации")
+                    print(f"Дата подписания {html_date} НЕ удовлетворяет дедлайну {deadline_dates[i]}")
     else:
         print("Даты не найдены в PDF. Открытие .docx для поиска...")
 
@@ -56,10 +54,21 @@ def main():
                 print(f"Сроки выполнения работ: с {dates_from_docx[0]} по {dates_from_docx[1]}")
                 if payment_period:
                     print(f"Период оплаты: {', '.join(payment_period)}")
-                else:
-                    print("Не удалось найти период оплаты в PDF документе.")
                 if article_4_number:
                     print(f"Срок предоставления комплекта отчетной документации: {article_4_number} рабочих дней")
+
+                    # Расчет срока предоставления комплекта отчетной документации
+                    html_dates = parse_docx.parse_multiple_html(html_paths)
+                    deadline_dates = parse_docx.calculate_deadline_dates(article_4_number, html_dates)
+                    print(f"Расчетные даты дедлайнов: {deadline_dates}")
+
+                    for i, html_date in enumerate(html_dates):
+                        html_date_dt = datetime.strptime(html_date, '%d.%m.%Y')
+                        deadline_date_dt = datetime.strptime(deadline_dates[i], '%d.%m.%Y')
+                        if html_date_dt <= deadline_date_dt:
+                            print(f"Дата подписания {html_date} удовлетворяет дедлайну {deadline_dates[i]}")
+                        else:
+                            print(f"Дата подписания {html_date} НЕ удовлетворяет дедлайну {deadline_dates[i]}")
             elif len(dates_from_docx) == 1:
                 print(f"Сроки выполнения работ: {dates_from_docx[0]}")
                 if article_4_number:
@@ -68,14 +77,6 @@ def main():
                 print("Не удалось найти даты в таблице DOCX.")
         else:
             print("Не удалось найти даты в DOCX документе.")
-
-        # Парсинг HTML файлов
-        html_dates = parse_docx.parse_multiple_html(html_paths)
-        if html_dates and len(html_dates) == 2:
-            print(f"Дата подписания первого документа: {html_dates[0]}")
-            print(f"Дата подписания второго документа: {html_dates[1]}")
-        else:
-            print("Не удалось найти дату подписания в HTML файлах.")
     
 if __name__ == "__main__":
     main()

@@ -50,7 +50,7 @@ def find_payment_period(text):
     return found_keywords
 
 def find_article_4_number(text):
-    section = find_section(text, '4\\.1', '\\n\\s*\\n')
+    section = find_section(text, '4\\.1', '\\n\\s*\\н')
     if section:
         section = section.replace('4.1', '', 1)  # Убираем '4.1' один раз из начала
         match = re.search(r'\b(\d+)\b', section)
@@ -82,37 +82,31 @@ def parse_multiple_html(html_paths):
             html_dates.append(date)
     return html_dates
 
-def get_last_working_day(year, month):
-    # Получаем последний день месяца
-    last_day = pd.Timestamp(year=year, month=month, day=1) + pd.offsets.MonthEnd(1)
-    # Проверяем, является ли последний день месяца рабочим днем
-    while last_day.weekday() > 4:  # 0 - понедельник, 4 - пятница
-        last_day -= timedelta(days=1)
-    return last_day
+def get_first_working_day(year, month):
+    # Получаем первый день месяца
+    first_day = datetime(year, month, 1)
+    # Проверяем, является ли первый день месяца рабочим днем
+    while first_day.weekday() > 4:  # 0 - понедельник, 4 - пятница
+        first_day += timedelta(days=1)
+    return first_day
 
-def calculate_deadline_dates(payment_period, article_4_number, start_year, start_month, end_year, end_month):
+def add_business_days(start_date, business_days):
+    current_date = start_date
+    days_added = 0
+    while days_added < business_days-1:
+        current_date += timedelta(days=1)
+        if current_date.weekday() < 5:  # 0 - понедельник, 4 - пятница
+            days_added += 1
+    return current_date
+
+def calculate_deadline_dates(article_4_number, html_dates):
     deadlines = []
-    if payment_period == "ежемесячно":
-        for year in range(start_year, end_year + 1):
-            for month in range(1, 13):
-                if year == start_year and month < start_month:
-                    continue
-                if year == end_year and month > end_month:
-                    break
-                last_working_day = get_last_working_day(year, month)
-                deadline_date = last_working_day + pd.offsets.BDay(article_4_number)
-                deadlines.append(deadline_date.strftime('%d.%m.%Y'))
-    elif payment_period == "ежеквартально":
-        for year in range(start_year, end_year + 1):
-            for quarter in range(1, 5):
-                if year == start_year and quarter * 3 < start_month:
-                    continue
-                if year == end_year and quarter * 3 > end_month:
-                    break
-                month = quarter * 3
-                last_working_day = get_last_working_day(year, month)
-                deadline_date = last_working_day + pd.offsets.BDay(article_4_number)
-                deadlines.append(deadline_date.strftime('%d.%m.%Y'))
+    for date_str in html_dates:
+        year = int(date_str[-4:])
+        month = int(date_str[3:5])
+        first_working_day = get_first_working_day(year, month)
+        deadline_date = add_business_days(first_working_day, article_4_number)
+        deadlines.append(deadline_date.strftime('%d.%m.%Y'))
     return deadlines
 
 def parse_docx_and_pdf(docx_path, pdf_path):
